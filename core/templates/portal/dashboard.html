@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — LinkVault{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
+{% block content %}
+{% with active='dashboard' %}
+
+<div class="page-header">
+  <div>
+    <h1>Good day, {{ request.user.first_name }} 👋</h1>
+    <p>Here's what's happening in
+      {% if profile.is_hr_admin %}the organization{% else %}{{ profile.department.name|default:"your department" }}{% endif %}
+    </p>
+  </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">🏢</div>
+    <div class="stat-info">
+      <div class="value">{{ stats.total_depts }}</div>
+      <div class="label">Departments</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">👤</div>
+    <div class="stat-info">
+      <div class="value">{{ stats.total_users }}</div>
+      <div class="label">Active Members</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple">📁</div>
+    <div class="stat-info">
+      <div class="value">{{ stats.total_resources }}</div>
+      <div class="label">Resources</div>
+    </div>
+  </div>
+  {% if profile.is_hr_admin %}
+  <div class="stat-card">
+    <div class="stat-icon orange">⏳</div>
+    <div class="stat-info">
+      <div class="value">{{ stats.pending_count }}</div>
+      <div class="label">Pending Approvals</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+  <!-- RECENT RESOURCES -->
+  <div class="card">
+    <div class="card-header">
+      <h3>📁 Recent Resources</h3>
+      <a href="{% url 'resources' %}" class="btn btn-ghost btn-sm">View all</a>
+    </div>
+    <div class="table-wrap">
+      {% if recent_resources %}
+      <table>
+        <thead><tr><th>Title</th><th>Dept</th><th>Type</th></tr></thead>
+        <tbody>
+          {% for r in recent_resources %}
+          <tr>
+            <td>
+              <a href="{{ r.url }}" target="_blank" style="color:var(--brand);font-weight:500;">{{ r.title }}</a>
+              {% if r.tags %}<br>{% for t in r.tag_list %}<span class="tag">{{ t }}</span>{% endfor %}{% endif %}
+            </td>
+            <td><span class="badge badge-blue">{{ r.department.name }}</span></td>
+            <td><span class="badge badge-gray">{{ r.get_resource_type_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="empty-state"><div class="empty-icon">📭</div><p>No resources yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- DEPARTMENT OVERVIEW -->
+  <div class="card">
+    <div class="card-header">
+      <h3>🏢 Department Overview</h3>
+      <a href="{% url 'departments' %}" class="btn btn-ghost btn-sm">Manage</a>
+    </div>
+    <div class="table-wrap">
+      {% if dept_stats %}
+      <table>
+        <thead><tr><th>Department</th><th>Members</th><th>Resources</th></tr></thead>
+        <tbody>
+          {% for d in dept_stats %}
+          <tr>
+            <td>
+              <strong>{{ d.name }}</strong>
+              {% if d.head %}<br><span style="font-size:.72rem;color:var(--muted);">Head: {{ d.head.get_full_name }}</span>{% endif %}
+            </td>
+            <td><span class="badge badge-green">{{ d.member_count }}</span></td>
+            <td><span class="badge badge-purple">{{ d.resource_count }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="empty-state"><div class="empty-icon">🏢</div><p>No departments found</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% if profile.is_hr_admin and stats.pending_count > 0 %}
+<div class="alert alert-warning" style="margin-top:20px;">
+  ⏳ <strong>{{ stats.pending_count }} user(s)</strong> are awaiting approval.
+  <a href="{% url 'people' %}" style="font-weight:600;margin-left:8px;">Review now →</a>
+</div>
+{% endif %}
+
+{% endwith %}
+{% endblock %}

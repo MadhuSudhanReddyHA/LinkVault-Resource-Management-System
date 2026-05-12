@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}People — LinkVault{% endblock %}
+{% block topbar_title %}People{% endblock %}
+{% with active='people' %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>People</h1>
+    <p>Manage team members and approvals</p>
+  </div>
+</div>
+
+<!-- PENDING APPROVALS (HR only) -->
+{% if profile.is_hr_admin and pending %}
+<div class="card" style="margin-bottom:24px;border-left:4px solid var(--warning);">
+  <div class="card-header">
+    <h3>⏳ Pending Approvals <span class="nav-badge" style="position:static;">{{ pending.count }}</span></h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Employee ID</th><th>Email</th><th>Registered</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for up in pending %}
+        <tr>
+          <td><strong>{{ up.user.get_full_name }}</strong></td>
+          <td><code>{{ up.emp_id }}</code></td>
+          <td>{{ up.user.email }}</td>
+          <td style="font-size:.75rem;color:var(--muted);">{{ up.joined_at|date:"M d, Y" }}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <form method="post" action="{% url 'approve_user' up.pk %}">
+                {% csrf_token %}<button class="btn btn-success btn-xs">✅ Approve</button>
+              </form>
+              <form method="post" action="{% url 'reject_user' up.pk %}" onsubmit="return confirm('Reject and remove {{ up.user.get_full_name }}?')">
+                {% csrf_token %}<button class="btn btn-danger btn-xs">❌ Reject</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- APPROVED MEMBERS -->
+<div class="card">
+  <div class="card-header">
+    <h3>✅ Active Members</h3>
+  </div>
+  <div class="table-wrap">
+    {% if approved %}
+    <table>
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Employee ID</th>
+          <th>Role</th>
+          <th>Department</th>
+          {% if profile.is_hr_admin or profile.is_dept_head %}<th>Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for up in approved %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="avatar" style="width:32px;height:32px;font-size:.7rem;flex-shrink:0;">
+                {{ up.user.first_name.0 }}{{ up.user.last_name.0 }}
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:.875rem;">{{ up.user.get_full_name }}</div>
+                <div style="font-size:.72rem;color:var(--muted);">{{ up.user.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td><code style="font-size:.78rem;">{{ up.emp_id }}</code></td>
+          <td>
+            {% if up.role == 'hr_admin' %}<span class="badge badge-purple">HR Admin</span>
+            {% elif up.role == 'dept_head' %}<span class="badge badge-blue">Dept Head</span>
+            {% else %}<span class="badge badge-gray">Employee</span>{% endif %}
+          </td>
+          <td>
+            {% if up.department %}
+              <span class="badge badge-green">{{ up.department.name }}</span>
+            {% else %}
+              <span style="font-size:.78rem;color:var(--muted);font-style:italic;">Unassigned</span>
+            {% endif %}
+          </td>
+          {% if profile.is_hr_admin or profile.is_dept_head %}
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              {% if profile.is_hr_admin %}
+                <!-- Assign to department -->
+                <button class="btn btn-ghost btn-xs" onclick="openModal('dept-modal-{{ up.pk }}')">🏢 Assign</button>
+                <!-- Change role -->
+                <button class="btn btn-ghost btn-xs" onclick="openModal('role-modal-{{ up.pk }}')">🎭 Role</button>
+              {% endif %}
+              {% if up.department and up.user != request.user %}
+                {% if profile.is_hr_admin or up.department == profile.department %}
+                <form method="post" action="{% url 'remove_from_dept' up.pk %}" onsubmit="return confirm('Remove from department?')">
+                  {% csrf_token %}<button class="btn btn-danger btn-xs">✕ Remove</button>
+                </form>
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+
+        <!-- Assign Dept Modal -->
+        {% if profile.is_hr_admin %}
+        <div class="modal-overlay" id="dept-modal-{{ up.pk }}">
+          <div class="modal">
+            <div class="modal-header">
+              <h3>Assign Department — {{ up.user.get_full_name }}</h3>
+              <button class="modal-close" onclick="closeModal('dept-modal-{{ up.pk }}')">✕</button>
+            </div>
+            <form method="post" action="{% url 'assign_dept' up.pk %}">
+              {% csrf_token %}
+              <div class="modal-body">
+                <div class="form-group">
+                  <label>Department</label>
+                  <select name="department" class="form-control" required>
+                    <option value="">— Select department —</option>
+                    {% for d in departments %}<option value="{{ d.pk }}" {% if up.department == d %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('dept-modal-{{ up.pk }}')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Assign</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Change Role Modal -->
+        <div class="modal-overlay" id="role-modal-{{ up.pk }}">
+          <div class="modal">
+            <div class="modal-header">
+              <h3>Change Role — {{ up.user.get_full_name }}</h3>
+              <button class="modal-close" onclick="closeModal('role-modal-{{ up.pk }}')">✕</button>
+            </div>
+            <form method="post" action="{% url 'change_role' up.pk %}">
+              {% csrf_token %}
+              <div class="modal-body">
+                <div class="form-group">
+                  <label>Role</label>
+                  <select name="role" class="form-control">
+                    <option value="employee"  {% if up.role == 'employee' %}selected{% endif %}>Employee</option>
+                    <option value="dept_head" {% if up.role == 'dept_head' %}selected{% endif %}>Department Head</option>
+                    <option value="hr_admin"  {% if up.role == 'hr_admin' %}selected{% endif %}>HR Admin</option>
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('role-modal-{{ up.pk }}')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Role</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><div class="empty-icon">👥</div><p>No members found.</p></div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+{% endwith %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Edit Resource — LinkVault{% endblock %}
+{% block topbar_title %}Edit Resource{% endblock %}
+{% with active='resources' %}
+
+{% block content %}
+<div style="max-width:600px;">
+  <div class="page-header">
+    <div>
+      <h1>Edit Resource</h1>
+      <p>Update details for "{{ resource.title }}"</p>
+    </div>
+    <a href="{% url 'resources' %}" class="btn btn-ghost">← Back</a>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" name="title" class="form-control" value="{{ form.instance.title }}" required />
+        </div>
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" name="url" class="form-control" value="{{ form.instance.url }}" required />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea name="description" class="form-control" rows="3">{{ form.instance.description }}</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select name="resource_type" class="form-control">
+              {% for val, label in form.fields.resource_type.choices %}
+                <option value="{{ val }}" {% if form.instance.resource_type == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            {% if profile.is_hr_admin %}
+              <select name="department" class="form-control">
+                {% for d in form.fields.department.queryset %}
+                  <option value="{{ d.pk }}" {% if form.instance.department == d %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+              </select>
+            {% else %}
+              <input type="hidden" name="department" value="{{ form.instance.department.pk }}" />
+              <input type="text" class="form-control" value="{{ form.instance.department.name }}" disabled />
+            {% endif %}
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tags</label>
+          <input type="text" name="tags" class="form-control" value="{{ form.instance.tags }}" placeholder="comma-separated" />
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <a href="{% url 'resources' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% endwith %}

@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}Resources — LinkVault{% endblock %}
+{% block topbar_title %}Resources{% endblock %}
+{% with active='resources' %}
+
+{% block topbar_actions %}
+  <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-res')">+ Add Resource</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Resources</h1>
+    <p>Browse and manage the organization's knowledge base</p>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<form method="get" class="filters">
+  <input type="text" name="q" class="form-control" placeholder="🔍 Search resources…" value="{{ search }}" style="min-width:200px;" />
+  {% if profile.is_hr_admin %}
+  <select name="dept" class="form-control">
+    <option value="">All Departments</option>
+    {% for d in departments %}<option value="{{ d.pk }}" {% if dept_filter == d.pk|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <select name="type" class="form-control">
+    <option value="">All Types</option>
+    {% for val, label in type_choices %}<option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn btn-ghost btn-sm">Filter</button>
+  {% if search or dept_filter or type_filter %}
+    <a href="{% url 'resources' %}" class="btn btn-ghost btn-sm">✕ Clear</a>
+  {% endif %}
+</form>
+
+<!-- TABLE -->
+<div class="card">
+  <div class="table-wrap">
+    {% if resources %}
+    <table>
+      <thead>
+        <tr>
+          <th>Resource</th>
+          <th>Department</th>
+          <th>Type</th>
+          <th>Added By</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in resources %}
+        <tr>
+          <td>
+            <a href="{{ r.url }}" target="_blank" rel="noopener" style="font-weight:600;color:var(--brand);">
+              {{ r.title }} ↗
+            </a>
+            {% if r.description %}
+              <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">{{ r.description|truncatechars:80 }}</div>
+            {% endif %}
+            {% if r.tags %}
+              <div style="margin-top:4px;">{% for t in r.tag_list %}<span class="tag">{{ t }}</span>{% endfor %}</div>
+            {% endif %}
+          </td>
+          <td><span class="badge badge-blue">{{ r.department.name }}</span></td>
+          <td>
+            {% if r.resource_type == 'link'  %}<span class="badge badge-gray">🔗 Link</span>
+            {% elif r.resource_type == 'doc'  %}<span class="badge badge-blue">📄 Doc</span>
+            {% elif r.resource_type == 'video'%}<span class="badge badge-red">🎬 Video</span>
+            {% elif r.resource_type == 'tool' %}<span class="badge badge-green">🛠 Tool</span>
+            {% else %}<span class="badge badge-gray">Other</span>{% endif %}
+          </td>
+          <td style="font-size:.8rem;">{{ r.added_by.get_full_name|default:"—" }}</td>
+          <td style="font-size:.75rem;color:var(--muted);">{{ r.created_at|date:"M d, Y" }}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <a href="{{ r.url }}" target="_blank" class="btn btn-ghost btn-xs">↗ Open</a>
+              {% if profile.can_manage %}
+                {% if profile.is_hr_admin or r.department == profile.department %}
+                  <a href="{% url 'resource_edit' r.pk %}" class="btn btn-ghost btn-xs">✏️</a>
+                  <form method="post" action="{% url 'resource_delete' r.pk %}" onsubmit="return confirm('Delete this resource?')">
+                    {% csrf_token %}
+                    <button class="btn btn-danger btn-xs">🗑</button>
+                  </form>
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <p>No resources found{% if search %} for "{{ search }}"{% endif %}.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ADD RESOURCE MODAL -->
+<div class="modal-overlay" id="modal-add-res">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Resource</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-res')">✕</button>
+    </div>
+    <form method="post" action="{% url 'resource_add' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Title *</label>
+          <input type="text" name="title" class="form-control" placeholder="Resource name" required />
+        </div>
+        <div class="form-group">
+          <label>URL *</label>
+          <input type="url" name="url" class="form-control" placeholder="https://…" required />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea name="description" class="form-control" rows="2" placeholder="What is this resource about?"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select name="resource_type" class="form-control">
+              {% for val, label in type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            {% if profile.is_hr_admin %}
+              <select name="department" class="form-control" required>
+                {% for d in departments %}<option value="{{ d.pk }}">{{ d.name }}</option>{% endfor %}
+              </select>
+            {% else %}
+              <input type="hidden" name="department" value="{{ profile.department.pk }}" />
+              <input type="text" class="form-control" value="{{ profile.department.name }}" disabled />
+            {% endif %}
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tags <span style="font-weight:400;color:var(--muted);">(comma-separated)</span></label>
+          <input type="text" name="tags" class="form-control" placeholder="onboarding, policy, hr" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-add-res')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Resource</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+{% endwith %}

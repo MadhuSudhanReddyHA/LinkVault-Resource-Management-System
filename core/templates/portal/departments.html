@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Departments — LinkVault{% endblock %}
+{% block topbar_title %}Departments{% endblock %}
+{% with active='departments' %}
+
+{% block topbar_actions %}
+  {% if profile.is_hr_admin %}
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-dept')">+ New Department</button>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Departments</h1>
+    <p>Organizational structure and department heads</p>
+  </div>
+</div>
+
+{% if departments %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;">
+  {% for dept in departments %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>{{ dept.name }}</h3>
+        <p style="font-size:.75rem;color:var(--muted);margin-top:2px;">{{ dept.description|default:"No description" }}</p>
+      </div>
+      {% if profile.is_hr_admin %}
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-xs" onclick="openModal('assign-{{ dept.pk }}')">👤 Head</button>
+        <form method="post" action="{% url 'dept_delete' dept.pk %}" onsubmit="return confirm('Delete {{ dept.name }}?')">
+          {% csrf_token %}
+          <button class="btn btn-danger btn-xs">🗑</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      <div style="display:flex;gap:16px;margin-bottom:14px;">
+        <div style="text-align:center;">
+          <div style="font-size:1.3rem;font-weight:700;">{{ dept.member_count }}</div>
+          <div style="font-size:.7rem;color:var(--muted);">Members</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.3rem;font-weight:700;">{{ dept.resource_count }}</div>
+          <div style="font-size:.7rem;color:var(--muted);">Resources</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:8px;">
+        {% if dept.head %}
+          <div class="avatar" style="width:30px;height:30px;font-size:.7rem;">
+            {{ dept.head.first_name.0 }}{{ dept.head.last_name.0 }}
+          </div>
+          <div>
+            <div style="font-size:.8rem;font-weight:600;">{{ dept.head.get_full_name }}</div>
+            <div style="font-size:.7rem;color:var(--muted);">Department Head</div>
+          </div>
+        {% else %}
+          <span style="font-size:.8rem;color:var(--muted);font-style:italic;">No head assigned</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Head Modal -->
+  {% if profile.is_hr_admin %}
+  <div class="modal-overlay" id="assign-{{ dept.pk }}">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Assign Head — {{ dept.name }}</h3>
+        <button class="modal-close" onclick="closeModal('assign-{{ dept.pk }}')">✕</button>
+      </div>
+      <form method="post" action="{% url 'dept_assign_head' dept.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Select Department Head</label>
+            <select name="head" class="form-control">
+              <option value="">— Select a member —</option>
+              {% for m in dept.members.all %}
+                {% if m.is_approved %}
+                <option value="{{ m.user.pk }}" {% if dept.head == m.user %}selected{% endif %}>
+                  {{ m.user.get_full_name }} ({{ m.emp_id }})
+                </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('assign-{{ dept.pk }}')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Assign</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🏢</div>
+  <p>No departments yet. Create one to get started.</p>
+</div>
+{% endif %}
+
+<!-- ADD DEPT MODAL -->
+{% if profile.is_hr_admin %}
+<div class="modal-overlay" id="modal-add-dept">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Create Department</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-dept')">✕</button>
+    </div>
+    <form method="post" action="{% url 'dept_create' %}">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Department Name</label>
+          <input type="text" name="name" class="form-control" placeholder="e.g. Engineering" required />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea name="description" class="form-control" rows="3" placeholder="What does this department do?"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-add-dept')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% endwith %}
